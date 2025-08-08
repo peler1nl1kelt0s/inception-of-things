@@ -15,6 +15,7 @@ up:
 clean:
 	@echo "$(YELLOW)--> Vagrant ortamı yok ediliyor...$(RESET)"
 	@vagrant destroy -f
+	@rm -rf .vagrant agent-token.env
 	@echo "\n$(GREEN)🧹 Temizlik tamamlandı!$(RESET)"
 
 re: clean up
