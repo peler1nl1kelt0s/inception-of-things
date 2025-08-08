@@ -27,11 +27,11 @@ spec:
             port:
               number: 80
   # Burada normalde default backend vardi asagidaki kisimla degistirdim
-  #   defaultBackend:
-  #    service:
-  #      name: app3-service
-  #     port:
-  #      number: 80
+    # defaultBackend:
+    #  service:
+    #    name: app3-service
+    #   port:
+    #    number: 80
   # digerlerinden farkli olarak burada host yok boylelikle geriye kalan istekler buraya geliyor
   - http:
       paths:
