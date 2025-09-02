@@ -31,12 +31,14 @@ sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 rm kubectl
 
 echo -e "${BLUE}[SERVER] K3s (controller modunda) kuruluyor...${NC}"
-export INSTALL_K3S_EXEC="--write-kubeconfig-mode=644 \
-  --bind-address=192.168.56.110 \
-  --advertise-address=192.168.56.110 \
-  --node-ip=192.168.56.110"
+curl -sfL https://get.k3s.io | sudo INSTALL_K3S_EXEC="server \
+    --write-kubeconfig-mode=644 \
+    --bind-address=192.168.56.110 \
+    --advertise-address=192.168.56.110 \
+    --node-ip=192.168.56.110 \
+    --flannel-iface=enp0s8 \
+    --tls-san=192.168.56.110" sh -
 
-curl -sfL https://get.k3s.io | sudo sh -s -
 if [ $? -ne 0 ]; then
   echo -e "${RED}[HATA] K3s kurulumu başarısız oldu.${NC}"
   exit 1
@@ -58,7 +60,7 @@ if [ ! -f /var/lib/rancher/k3s/server/node-token ]; then
 fi
 
 sudo cat /var/lib/rancher/k3s/server/node-token > /vagrant/agent-token.env
-
+sudo cp /var/lib/rancher/k3s/server/token /vagrant/ca.crt
 echo -e "${GREEN}[SERVER] Kurulum tamamlandı. 'k' alias'ı ile kubectl kullanabilirsiniz.${NC}"
 echo "alias k='sudo kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml'" >> /home/vagrant/.bashrc
 echo "source /home/vagrant/.bashrc" >> /home/vagrant/.profile

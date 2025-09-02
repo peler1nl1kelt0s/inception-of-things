@@ -10,7 +10,7 @@ RESET   = \033[0m
 
 .PHONY: all up deploy clean test help
 
-all: up
+all: up deploy
 
 up:
 	@echo "$(BLUE)🚀 Vagrant sanal makinesi başlatiliyor...$(RESET)"

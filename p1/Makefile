@@ -15,7 +15,7 @@ up:
 clean:
 	@echo "$(YELLOW)--> Vagrant ortamı yok ediliyor...$(RESET)"
 	@vagrant destroy -f
-	@rm -rf .vagrant agent-token.env
+	@rm -rf .vagrant agent-token.env ca.crt
 	@echo "\n$(GREEN)🧹 Temizlik tamamlandı!$(RESET)"
 
 re: clean up
@@ -24,7 +24,7 @@ status:
 	@echo "$(BLUE)--> Vagrant ortam durumu kontrol ediliyor...$(RESET)"
 	@vagrant status
 	@echo "\n$(BLUE)--> Küme node'larının durumu kontrol ediliyor (Server üzerinden)...$(RESET)"
-	@vagrant ssh musekerS -c "sudo kubectl get nodes -o wide"
+	@vagrant ssh musekerS -c "k get nodes -o wide"
 
 ssh-server:
 	@echo "$(BLUE)--> Server (musekerS) sanal makinesine bağlanılıyor...$(RESET)"
