@@ -11,7 +11,7 @@ RESET = \033[0m
 
 all: up
 
-up: cluster setup deploy-argo-app
+up: cluster setup deploy-argo-app argocd-password argocd-ui
 	@echo "$(GREEN)✅ Kurulum ve uygulama tanımı tamamlandı!$(RESET)"
 	@echo "$(YELLOW)Argo CD şimdi GitHub deponuzdaki uygulamayı senkronize ediyor.$(RESET)"
 	@echo "$(BLUE)Durumu takip etmek için 'make argocd-ui' komutunu kullanabilirsiniz.$(RESET)"
@@ -43,7 +43,7 @@ setup:
 deploy-argo-app:
 	@echo "$(YELLOW)--> Argo CD uygulaması 'playground-app' cluster'a uygulanıyor...$(RESET)"
 	@sleep 10 # Argo CD servislerinin tam olarak kendine gelmesi için kısa bir bekleme
-	@$(KUBECONFIG_EXPORT) && kubectl apply -f confs/application.yaml
+	@$(KUBECONFIG_EXPORT) && kubectl apply -f configs/application.yaml
 	@echo "$(GREEN)Argo CD uygulaması başarıyla tanımlandı.$(RESET)"
 
 clean:
