@@ -1,67 +1,47 @@
-CLUSTER_NAME = iot-cluster
-KUBECONFIG_EXPORT = export KUBECONFIG=$(shell k3d kubeconfig write $(CLUSTER_NAME))
+.PHONY: all install deploy delete help
 
-GREEN = \033[32m
-YELLOW = \033[33m
-BLUE = \033[34m
-RED = \033[31m
-RESET = \033[0m
+K3D_CLUSTER_NAME = iot
+ARGOCD_NAMESPACE = argocd
+APP_NAMESPACE = dev
 
-.PHONY: all up down clean re help install-deps cluster setup argocd-password argocd-ui deploy-argo-app
+all: install deploy
+	@echo "\n############################################################"
+	@echo "#           Kurulum ve Dağıtım Tamamlandı!               #"
+	@echo "# Argo CD arayüzüne erişmek için yeni bir terminalde şunu çalıştırın:"
+	@echo "# kubectl port-forward svc/argocd-server -n $(ARGOCD_NAMESPACE) 8080:443"
+	@echo "# 'admin' kullanıcısı ve aşağıdaki şifre ile giriş yapın:"
+	@echo "# kubectl -n $(ARGOCD_NAMESPACE) get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d; echo"
+	@echo "############################################################"
 
-all: up
 
-up: cluster setup deploy-argo-app argocd-password argocd-ui
-	@echo "$(GREEN)✅ Kurulum ve uygulama tanımı tamamlandı!$(RESET)"
-	@echo "$(YELLOW)Argo CD şimdi GitHub deponuzdaki uygulamayı senkronize ediyor.$(RESET)"
-	@echo "$(BLUE)Durumu takip etmek için 'make argocd-ui' komutunu kullanabilirsiniz.$(RESET)"
+install:
+	@chmod +x scripts/install.sh
+	@./scripts/install.sh $(K3D_CLUSTER_NAME)
+	@echo "\n############################################################"
+	@echo "#                   Argo CD Kuruluyor                      #"
+	@echo "############################################################"
+	@kubectl create namespace $(ARGOCD_NAMESPACE) || echo "Namespace '$(ARGOCD_NAMESPACE)' zaten mevcut."
+	@kubectl apply -n $(ARGOCD_NAMESPACE) -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+	@echo "\nArgo CD'nin podlarının ayağa kalkması bekleniyor..."
+	@kubectl wait --for=condition=ready pod --all -n $(ARGOCD_NAMESPACE) --timeout=5m
 
-install-deps:
-	@echo "$(YELLOW)--> Gerekli bağımlılıklar scripts/install.sh ile kuruluyor...$(RESET)"
-	@echo "$(YELLOW)Bu işlem için sudo parolanız istenebilir.$(RESET)"
-	@sudo bash scripts/install.sh
+deploy:
+	@echo "\n############################################################"
+	@echo "#           Uygulama Argo CD'ye Dağıtılıyor              #"
+	@echo "############################################################"
+	@kubectl apply -f apps/playground-app.yaml
+	@echo "\nUygulamanın 'Healthy' ve 'Synced' olması bekleniyor..."
+	@echo "Durumu Argo CD arayüzünden takip edebilirsiniz."
 
-cluster: install-deps
-	@echo "$(YELLOW)--> K3d cluster'ı '$(CLUSTER_NAME)' oluşturuluyor...$(RESET)"
-	@if ! k3d cluster get $(CLUSTER_NAME) > /dev/null 2>&1; then \
-		k3d cluster create $(CLUSTER_NAME) --agents 1 && \
-		echo "$(GREEN)Cluster başarıyla oluşturuldu.$(RESET)"; \
-	else \
-		echo "$(BLUE)Cluster '$(CLUSTER_NAME)' zaten mevcut. Bu adım atlanıyor.$(RESET)"; \
-	fi
+delete:
+	@echo "\n############################################################"
+	@echo "#               Tüm Kurulum Siliniyor                    #"
+	@echo "############################################################"
+	@k3d cluster delete $(K3D_CLUSTER_NAME)
 
-setup:
-	@echo "$(YELLOW)--> Gerekli Kubernetes kaynakları oluşturuluyor...$(RESET)"
-	@$(KUBECONFIG_EXPORT) && kubectl create namespace argocd || echo "$(BLUE)Namespace 'argocd' zaten mevcut.$(RESET)"
-	@$(KUBECONFIG_EXPORT) && kubectl create namespace dev || echo "$(BLUE)Namespace 'dev' zaten mevcut.$(RESET)"
-	@echo "$(YELLOW)--> Argo CD kuruluyor...$(RESET)"
-	@$(KUBECONFIG_EXPORT) && kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-	@echo "$(YELLOW)--> Argo CD pod'larının hazır olması bekleniyor...$(RESET)"
-	@$(KUBECONFIG_EXPORT) && kubectl wait --for=condition=ready pod --all -n argocd --timeout=300s
-	@echo "$(GREEN)Argo CD başarıyla kuruldu ve hazır.$(RESET)"
-
-deploy-argo-app:
-	@echo "$(YELLOW)--> Argo CD uygulaması 'playground-app' cluster'a uygulanıyor...$(RESET)"
-	@sleep 10 # Argo CD servislerinin tam olarak kendine gelmesi için kısa bir bekleme
-	@$(KUBECONFIG_EXPORT) && kubectl apply -f configs/application.yaml
-	@echo "$(GREEN)Argo CD uygulaması başarıyla tanımlandı.$(RESET)"
-
-clean:
-	@echo "$(RED)--> K3d cluster'ı '$(CLUSTER_NAME)' siliniyor...$(RESET)"
-	@k3d cluster delete $(CLUSTER_NAME)
-	@rm -rf kubectl
-	@echo "$(GREEN)Temizlik tamamlandı.$(RESET)"
-
-down: clean
-
-re: clean all
-
-argocd-password:
-	@echo "$(YELLOW)Argo CD başlangıç parolası alınıyor...$(RESET)"
-	@echo "$(GREEN)Parola: $(RESET)"
-	@$(KUBECONFIG_EXPORT) && kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
-
-argocd-ui:
-	@echo "$(YELLOW)Argo CD arayüzü için port-forward başlatılıyor...$(RESET)"
-	@echo "$(GREEN)Tarayıcınızda $(BLUE)https://localhost:8080$(RESET) adresini açın. Çıkmak için CTRL+C'ye basın.$(RESET)"
-	@$(KUBECONFIG_EXPORT) && kubectl port-forward -n argocd svc/argocd-server 8080:443
+help:
+	@echo "Kullanım:"
+	@echo "  make          - Tüm kurulumu (araçlar, cluster, Argo CD, uygulama) yapar."
+	@echo "  make install  - Sadece araçları, cluster'ı ve Argo CD'yi kurar."
+	@echo "  make deploy   - Sadece uygulamayı Argo CD'ye dağıtır."
+	@echo "  make delete   - K3d cluster'ını tamamen siler."
