@@ -1,3 +1,5 @@
+#! BİR ŞEY DENİYORUM
+
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -8,4 +10,6 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi
+      storage: 1Gi\
+
+      # make clean atiyim oyle dene istersen biraz elledim
