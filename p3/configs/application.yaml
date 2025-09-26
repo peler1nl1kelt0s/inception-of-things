@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/peler1nl1kelt0s/inception-of-things.git
     targetRevision: HEAD
-    path: p3/manifests/deployment
+    path: p3/configs
   destination:
     server: https://kubernetes.default.svc
     namespace: dev

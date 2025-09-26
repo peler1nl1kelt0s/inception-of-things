@@ -1,26 +1,33 @@
 Vagrant.configure("2") do |config|
-  config.vm.define "musekerS" do |server|
-    server.vm.box = "debian/bookworm64"
-    server.vm.hostname = "musekerS"
-    server.vm.network "private_network", ip: "192.168.56.110"
-    server.vm.provider "virtualbox" do |vb|
-      vb.name = "musekerS"
-      vb.memory = 1024
-      vb.cpus = 1
-    end
-    server.vm.provision "shell", path: "scripts/install-server.sh"
+  
+  config.vm.box = "ubuntu/jammy64"
+
+  config.vm.provider "virtualbox" do |v|
+
+    v.memory = 1024 # 1 GB RAM
+    v.cpus = 1      # 1 CPU
   end
 
-  config.vm.define "musekerSW" do |worker|
-    worker.vm.box = "debian/bookworm64"
-    worker.vm.hostname = "musekerSW"
-    worker.vm.network "private_network", ip: "192.168.56.111"
-    worker.vm.provider "virtualbox" do |vb|
-      vb.name = "musekerSW"
-      vb.memory = 1024
-      vb.cpus = 1
+  config.vm.define "mdiragaS" do |server|
+
+    server.vm.hostname = "mdiragaS"
+    server.vm.network "private_network", ip: "192.168.56.110"
+    
+    server.vm.provider "virtualbox" do |v|
+      v.name = "mdiragaS"
     end
-    worker.vm.provision "shell", path: "scripts/install-worker.sh"
+
+    server.vm.provision "shell", path: "scripts/install_k3s_server.sh"
+  end
+
+  config.vm.define "mdiragaSW" do |worker|
+
+    worker.vm.hostname = "mdiragaSW"
+    worker.vm.network "private_network", ip: "192.168.56.111"
+    worker.vm.provider "virtualbox" do |v|
+      v.name = "mdiragaSW"
+    end
+    
+    worker.vm.provision "shell", path: "scripts/install_k3s_agent.sh"
   end
 end
-

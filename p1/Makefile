@@ -1,46 +1,33 @@
-GREEN   = \033[32;1m
-YELLOW  = \033[33;1m
-BLUE    = \033[34;1m
-RESET   = \033[0m
-
-.PHONY: all up clean re status ssh-server ssh-worker help
+.PHONY: all up halt destroy status ssh-server ssh-worker reprovision clean
 
 all: up
 
 up:
-	@echo "\n$(BLUE)--> Vagrant ile sanal ortam başlatılıyor (VirtualBox provider)...$(RESET)"
-	@vagrant up --provider=virtualbox
-	@echo "\n$(GREEN)✅ Kurulum tamamlandı! Küme durumu için 'make status' komutunu kullanabilirsiniz.$(RESET)"
+	@echo ">>> Sanal makineler başlatılıyor ve ayarlanıyor..."
+	@vagrant up
 
-clean:
-	@echo "$(YELLOW)--> Vagrant ortamı yok ediliyor...$(RESET)"
+halt:
+	@echo ">>> Sanal makineler durduruluyor..."
+	@vagrant halt
+
+destroy:
+	@echo ">>> Sanal makineler siliniyor..."
 	@vagrant destroy -f
-	@rm -rf .vagrant agent-token.env ca.crt
-	@echo "\n$(GREEN)🧹 Temizlik tamamlandı!$(RESET)"
-
-re: clean up
 
 status:
-	@echo "$(BLUE)--> Vagrant ortam durumu kontrol ediliyor...$(RESET)"
+	@echo ">>> Sanal makinelerin durumu kontrol ediliyor..."
 	@vagrant status
-	@echo "\n$(BLUE)--> Küme node'larının durumu kontrol ediliyor (Server üzerinden)...$(RESET)"
-	@vagrant ssh musekerS -c "k get nodes -o wide"
 
 ssh-server:
-	@echo "$(BLUE)--> Server (musekerS) sanal makinesine bağlanılıyor...$(RESET)"
-	@vagrant ssh musekerS
+	@echo ">>> Server makinesine (mdiragaS) bağlanılıyor..."
+	@vagrant ssh mdiragaS
 
 ssh-worker:
-	@echo "$(BLUE)--> Worker (musekerSW) sanal makinesine bağlanılıyor...$(RESET)"
-	@vagrant ssh musekerSW
+	@echo ">>> Worker makinesine (mdiragaSW) bağlanılıyor..."
+	@vagrant ssh mdiragaSW
 
-help:
-	@echo "$(GREEN)Kullanılabilir Makefile Komutları:$(RESET)"
-	@echo "  $(YELLOW)make up$(RESET)          - Vagrant ortamını ve K3s kümesini başlatır."
-	@echo "  $(YELLOW)make clean$(RESET)        - Tüm Vagrant sanal makinelerini siler."
-	@echo "  $(YELLOW)make re$(RESET)           - Ortamı temizler ve yeniden kurar."
-	@echo "  $(YELLOW)make status$(RESET)       - Vagrant ve K3s kümesinin durumunu gösterir."
-	@echo "  $(YELLOW)make ssh-server$(RESET)  - Server (musekerS) sanal makinesine SSH bağlantısı yapar."
-	@echo "  $(YELLOW)make ssh-worker$(RESET)  - Worker (musekerSW) sanal makinesine SSH bağlantısı yapar."
-	@echo "  $(YELLOW)make help$(RESET)         - Bu yardım menüsünü gösterir."
+reprovision:
+	@echo ">>> Kurulum betikleri yeniden çalıştırılıyor..."
+	@vagrant provision
 
+clean: destroy
