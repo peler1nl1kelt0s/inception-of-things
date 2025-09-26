@@ -1,14 +1,23 @@
+# Makefile
+
+# --- Değişkenler ---
 CLUSTER_NAME := iot-cluster
 HOST_PORT := 8888
 NODE_PORT := 30080
 KUBE_NAMESPACE_ARGOCD := argocd
 KUBE_NAMESPACE_DEV := dev
 
+# Renk kodları
 GREEN=\033[0;32m
 YELLOW=\033[0;33m
 NC=\033[0m
 
-.PHONY: all install up clean argocd-install argocd-password argocd-ui app-deploy help
+.PHONY: launch all install up clean argocd-install argocd-password argocd-ui app-deploy help
+
+launch: all
+	@echo -e "\n${GREEN}[SUCCESS] Kurulum tamamlandı. Son adımlara geçiliyor...${NC}"
+	@$(MAKE) argocd-password
+	@$(MAKE) argocd-ui
 
 help:
 	@echo -e "${GREEN}Kullanılabilir komutlar:${NC}"
@@ -34,22 +43,25 @@ clean:
 
 argocd-install: up
 	@echo -e "\n${GREEN}[INFO] Gerekli namespace'ler oluşturuluyor: ${KUBE_NAMESPACE_ARGOCD}, ${KUBE_NAMESPACE_DEV}${NC}"
-	@kubectl create namespace ${KUBE_NAMESPACE_ARGOCD} || echo "Namespace ${KUBE_NAMESPACE_ARGOCD} zaten mevcut."
-	@kubectl create namespace ${KUBE_NAMESPACE_DEV} || echo "Namespace ${KUBE_NAMESPACE_DEV} zaten mevcut."
+	@kubectl create namespace ${KUBE_NAMESPACE_ARGOCD} >/dev/null 2>&1 || echo "Namespace ${KUBE_NAMESPACE_ARGOCD} zaten mevcut."
+	@kubectl create namespace ${KUBE_NAMESPACE_DEV} >/dev/null 2>&1 || echo "Namespace ${KUBE_NAMESPACE_DEV} zaten mevcut."
 	@echo -e "\n${GREEN}[INFO] Argo CD kuruluyor...${NC}"
 	@kubectl apply -n ${KUBE_NAMESPACE_ARGOCD} -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 	@echo -e "${GREEN}[SUCCESS] Argo CD kurulumu için kaynaklar uygulandı. Pod'ların hazır olması biraz zaman alabilir.${NC}"
+	@echo -e "${YELLOW}[INFO] Argo CD sunucusunun başlaması bekleniyor... (Bu işlem 1-2 dakika sürebilir)${NC}"
+	@kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n ${KUBE_NAMESPACE_ARGOCD} --timeout=120s
 
 argocd-password:
-	@echo -e "\n${GREEN}[INFO] 🔑 Argo CD Admin Şifresi:${NC}"
+	@echo -e "\n${GREEN}===============================================================${NC}"
+	@echo -e "${GREEN}[INFO] 🔑 Argo CD Admin Şifresi:${NC}"
 	@kubectl -n ${KUBE_NAMESPACE_ARGOCD} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-	@echo ""
+	@echo -e "\n${GREEN}===============================================================${NC}"
 
 argocd-ui:
 	@echo -e "\n${GREEN}[INFO] 🌐 Argo CD arayüzü için port yönlendirme başlatılıyor...${NC}"
 	@echo -e "Tarayıcınızdan ${YELLOW}https://localhost:8080${NC} adresine gidin."
 	@echo -e "Kullanıcı adı: ${YELLOW}admin${NC}"
-	@echo -e "Şifre için ${YELLOW}make argocd-password${NC} komutunu kullanın."
+	@echo -e "Bu terminali açık bıraktığınız sürece arayüze erişebilirsiniz."
 	@kubectl port-forward svc/argocd-server -n ${KUBE_NAMESPACE_ARGOCD} 8080:443
 
 app-deploy: argocd-install
