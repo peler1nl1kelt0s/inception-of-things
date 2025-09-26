@@ -1,47 +1,58 @@
-.PHONY: all install deploy delete help
+CLUSTER_NAME := iot-cluster
+HOST_PORT := 8888
+NODE_PORT := 30080
+KUBE_NAMESPACE_ARGOCD := argocd
+KUBE_NAMESPACE_DEV := dev
 
-K3D_CLUSTER_NAME = iot
-ARGOCD_NAMESPACE = argocd
-APP_NAMESPACE = dev
+GREEN=\033[0;32m
+YELLOW=\033[0;33m
+NC=\033[0m
 
-all: install deploy
-	@echo "\n############################################################"
-	@echo "#           Kurulum ve Dağıtım Tamamlandı!               #"
-	@echo "# Argo CD arayüzüne erişmek için yeni bir terminalde şunu çalıştırın:"
-	@echo "# kubectl port-forward svc/argocd-server -n $(ARGOCD_NAMESPACE) 8080:443"
-	@echo "# 'admin' kullanıcısı ve aşağıdaki şifre ile giriş yapın:"
-	@echo "# kubectl -n $(ARGOCD_NAMESPACE) get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d; echo"
-	@echo "############################################################"
-
-
-install:
-	@chmod +x scripts/install.sh
-	@./scripts/install.sh $(K3D_CLUSTER_NAME)
-	@echo "\n############################################################"
-	@echo "#                   Argo CD Kuruluyor                      #"
-	@echo "############################################################"
-	@kubectl create namespace $(ARGOCD_NAMESPACE) || echo "Namespace '$(ARGOCD_NAMESPACE)' zaten mevcut."
-	@kubectl apply -n $(ARGOCD_NAMESPACE) -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-	@echo "\nArgo CD'nin podlarının ayağa kalkması bekleniyor..."
-	@kubectl wait --for=condition=ready pod --all -n $(ARGOCD_NAMESPACE) --timeout=5m
-
-deploy:
-	@echo "\n############################################################"
-	@echo "#           Uygulama Argo CD'ye Dağıtılıyor              #"
-	@echo "############################################################"
-	@kubectl apply -f apps/playground-app.yaml
-	@echo "\nUygulamanın 'Healthy' ve 'Synced' olması bekleniyor..."
-	@echo "Durumu Argo CD arayüzünden takip edebilirsiniz."
-
-delete:
-	@echo "\n############################################################"
-	@echo "#               Tüm Kurulum Siliniyor                    #"
-	@echo "############################################################"
-	@k3d cluster delete $(K3D_CLUSTER_NAME)
+.PHONY: all install up clean argocd-install argocd-password argocd-ui app-deploy help
 
 help:
-	@echo "Kullanım:"
-	@echo "  make          - Tüm kurulumu (araçlar, cluster, Argo CD, uygulama) yapar."
-	@echo "  make install  - Sadece araçları, cluster'ı ve Argo CD'yi kurar."
-	@echo "  make deploy   - Sadece uygulamayı Argo CD'ye dağıtır."
-	@echo "  make delete   - K3d cluster'ını tamamen siler."
+	@echo -e "${GREEN}Kullanılabilir komutlar:${NC}"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  ${YELLOW}%-20s${NC} %s\n", $$1, $$2}'
+
+all: app-deploy
+
+install:
+	@echo -e "\n${GREEN}[INFO] Gerekli araçlar kuruluyor...${NC}"
+	@chmod +x scripts/install_tools.sh
+	@./scripts/install_tools.sh
+	@echo -e "\n${YELLOW}[WARN] Docker yetkileri için yeni bir terminal açın veya 'newgrp docker' komutunu çalıştırın.${NC}"
+
+up:
+	@echo -e "\n${GREEN}[INFO] 🚀 K3d kümesi (${CLUSTER_NAME}) oluşturuluyor...${NC}"
+	@k3d cluster create ${CLUSTER_NAME} -p "${HOST_PORT}:${NODE_PORT}@agent:0" --agents 1
+	@echo -e "${GREEN}[SUCCESS] Küme başarıyla oluşturuldu.${NC}"
+
+clean:
+	@echo -e "\n${YELLOW}[INFO] 🧹 K3d kümesi (${CLUSTER_NAME}) siliniyor...${NC}"
+	@k3d cluster delete ${CLUSTER_NAME}
+	@echo -e "${GREEN}[SUCCESS] Küme başarıyla silindi.${NC}"
+
+argocd-install: up
+	@echo -e "\n${GREEN}[INFO] Gerekli namespace'ler oluşturuluyor: ${KUBE_NAMESPACE_ARGOCD}, ${KUBE_NAMESPACE_DEV}${NC}"
+	@kubectl create namespace ${KUBE_NAMESPACE_ARGOCD} || echo "Namespace ${KUBE_NAMESPACE_ARGOCD} zaten mevcut."
+	@kubectl create namespace ${KUBE_NAMESPACE_DEV} || echo "Namespace ${KUBE_NAMESPACE_DEV} zaten mevcut."
+	@echo -e "\n${GREEN}[INFO] Argo CD kuruluyor...${NC}"
+	@kubectl apply -n ${KUBE_NAMESPACE_ARGOCD} -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+	@echo -e "${GREEN}[SUCCESS] Argo CD kurulumu için kaynaklar uygulandı. Pod'ların hazır olması biraz zaman alabilir.${NC}"
+
+argocd-password:
+	@echo -e "\n${GREEN}[INFO] 🔑 Argo CD Admin Şifresi:${NC}"
+	@kubectl -n ${KUBE_NAMESPACE_ARGOCD} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+	@echo ""
+
+argocd-ui:
+	@echo -e "\n${GREEN}[INFO] 🌐 Argo CD arayüzü için port yönlendirme başlatılıyor...${NC}"
+	@echo -e "Tarayıcınızdan ${YELLOW}https://localhost:8080${NC} adresine gidin."
+	@echo -e "Kullanıcı adı: ${YELLOW}admin${NC}"
+	@echo -e "Şifre için ${YELLOW}make argocd-password${NC} komutunu kullanın."
+	@kubectl port-forward svc/argocd-server -n ${KUBE_NAMESPACE_ARGOCD} 8080:443
+
+app-deploy: argocd-install
+	@echo -e "\n${GREEN}[INFO] Uygulama Argo CD'ye tanıtılıyor...${NC}"
+	@kubectl apply -f configs/argocd-application.yaml
+	@echo -e "${GREEN}[SUCCESS] Uygulama başarıyla dağıtıldı. Senkronizasyon için Argo CD arayüzünü kontrol edin.${NC}"

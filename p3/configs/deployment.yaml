@@ -2,9 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: wil-playground
-  namespace: dev
-  labels:
-    app: wil-playground
 spec:
   replicas: 1
   selector:
@@ -16,7 +13,7 @@ spec:
         app: wil-playground
     spec:
       containers:
-      - name: wil-playground
-        image: wil42/playground:v1 # PDF de  bir imaj öneriyordu, onu değiştirdim
+      - name: wil-playground-container
+        image: wil42/playground:v1
         ports:
-        - containerPort: 8888 # port değişti
+        - containerPort: 8888

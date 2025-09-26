@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: playground-app
+  name: wil-playground-app
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/peler1nl1kelt0s/inception-of-things.git'
-    path: p3/apps
+    repoURL: https://github.com/peler1nl1kelt0s/inception-of-things.git
     targetRevision: HEAD
+    path: configs
   destination:
-    server: 'https://kubernetes.default.svc'
-    namespace: argocd
+    server: https://kubernetes.default.svc
+    namespace: dev
   syncPolicy:
     automated:
       prune: true
