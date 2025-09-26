@@ -1,0 +1,29 @@
+global:
+  hosts:
+    domain: gitlab.local
+  edition: ce
+  ingress:
+    configureCertmanager: false
+
+certmanager:
+  install: false
+prometheus:
+  install: false
+grafana:
+  install: false
+gitlab-runner:
+  install: false
+nginx-ingress:
+  enabled: false
+
+gitlab:
+  webservice:
+    resources: { requests: { cpu: 100m, memory: 800Mi } }
+  sidekiq:
+    resources: { requests: { cpu: 100m, memory: 500Mi } }
+  gitaly:
+    resources: { requests: { cpu: 100m, memory: 500Mi } }
+postgresql:
+  resources: { requests: { cpu: 100m, memory: 500Mi } }
+redis:
+  resources: { requests: { cpu: 100m, memory: 200Mi } }
