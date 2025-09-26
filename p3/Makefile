@@ -10,20 +10,20 @@ KUBE_NAMESPACE_DEV := dev
 # Renk kodları
 GREEN=\033[0;32m
 YELLOW=\033[0;33m
+BLUE=\033[0;34m
 NC=\033[0m
 
-.PHONY: launch all install up clean argocd-install argocd-password argocd-ui app-deploy help
+.PHONY: all install up clean argocd-install argocd-password argocd-ui app-deploy setup-structure help
 
-launch: all
-	@echo -e "\n${GREEN}[SUCCESS] Kurulum tamamlandı. Son adımlara geçiliyor...${NC}"
-	@$(MAKE) argocd-password
-	@$(MAKE) argocd-ui
 
 help:
 	@echo -e "${GREEN}Kullanılabilir komutlar:${NC}"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  ${YELLOW}%-20s${NC} %s\n", $$1, $$2}'
 
-all: app-deploy
+all: setup-structure app-deploy
+	@echo -e "\n${GREEN}[SUCCESS] Kurulum tamamlandı. Son adımlara geçiliyor...${NC}"
+	@$(MAKE) argocd-password
+	@$(MAKE) argocd-ui
 
 install:
 	@echo -e "\n${GREEN}[INFO] Gerekli araçlar kuruluyor...${NC}"
@@ -40,6 +40,11 @@ clean:
 	@echo -e "\n${YELLOW}[INFO] 🧹 K3d kümesi (${CLUSTER_NAME}) siliniyor...${NC}"
 	@k3d cluster delete ${CLUSTER_NAME}
 	@echo -e "${GREEN}[SUCCESS] Küme başarıyla silindi.${NC}"
+
+setup-structure: ## Klasör yapısını oluştur
+	@echo -e "\n${BLUE}[INFO] 📁 Klasör yapısı oluşturuluyor...${NC}"
+	@mkdir -p applications manifests/deployment manifests/database manifests/configmaps
+	@echo -e "${GREEN}[SUCCESS] Klasör yapısı hazır.${NC}"
 
 argocd-install: up
 	@echo -e "\n${GREEN}[INFO] Gerekli namespace'ler oluşturuluyor: ${KUBE_NAMESPACE_ARGOCD}, ${KUBE_NAMESPACE_DEV}${NC}"
@@ -64,6 +69,8 @@ argocd-ui:
 	@kubectl port-forward svc/argocd-server -n ${KUBE_NAMESPACE_ARGOCD} 8080:443
 
 app-deploy: argocd-install
-	@echo -e "\n${GREEN}[INFO] Uygulama Argo CD'ye tanıtılıyor...${NC}"
+	@echo -e "\n${GREEN}[INFO] Ana uygulama (App of Apps) Argo CD'ye tanıtılıyor...${NC}"
 	@kubectl apply -f configs/argocd-application.yaml
-	@echo -e "${GREEN}[SUCCESS] Uygulama başarıyla dağıtıldı. Senkronizasyon için Argo CD arayüzünü kontrol edin.${NC}"
+	@echo -e "${GREEN}[SUCCESS] Ana uygulama başarıyla dağıtıldı.${NC}"
+	@echo -e "${BLUE}[INFO] Alt uygulamalar otomatik olarak senkronize edilecek...${NC}"
+	@echo -e "${YELLOW}[INFO] Senkronizasyon durumunu Argo CD arayüzünden takip edebilirsiniz.${NC}"
