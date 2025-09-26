@@ -55,7 +55,6 @@ argocd-password:
 	@echo -e "\n${GREEN}===============================================================${NC}"
 	@echo -e "${GREEN}[INFO] 🔑 Argo CD Admin Şifresi:${NC}"
 	@kubectl -n ${KUBE_NAMESPACE_ARGOCD} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
-	@echo -e "\n${GREEN}===============================================================${NC}"
 
 argocd-ui:
 	@echo -e "\n${GREEN}[INFO] 🌐 Argo CD arayüzü için port yönlendirme başlatılıyor...${NC}"
