@@ -13,6 +13,7 @@ halt:
 destroy:
 	@echo ">>> Sanal makineler siliniyor..."
 	@vagrant destroy -f
+	@rm -rf .vagrant
 
 status:
 	@echo ">>> Sanal makinelerin durumu kontrol ediliyor..."

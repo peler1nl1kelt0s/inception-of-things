@@ -1,14 +1,14 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: wil-playground-app-gitlab
+  name: wil-playground-app-from-gitlab
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: http://192.168.56.10/root/iot-app.git
+    repoURL: http://gitlab-webservice-default.gitlab.svc:8181/root/iot-project-app.git
     targetRevision: HEAD
-    path: p3/configs
+    path: .
   destination:
     server: https://kubernetes.default.svc
     namespace: dev

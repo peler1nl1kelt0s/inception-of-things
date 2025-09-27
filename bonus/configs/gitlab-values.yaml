@@ -4,26 +4,19 @@ global:
   edition: ce
   ingress:
     configureCertmanager: false
-
-certmanager:
-  install: false
 prometheus:
-  install: false
-grafana:
-  install: false
+  enabled: false
+
 gitlab-runner:
-  install: false
+  enabled: false
+
 nginx-ingress:
   enabled: false
 
 gitlab:
-  webservice:
-    resources: { requests: { cpu: 100m, memory: 800Mi } }
-  sidekiq:
-    resources: { requests: { cpu: 100m, memory: 500Mi } }
-  gitaly:
-    resources: { requests: { cpu: 100m, memory: 500Mi } }
-postgresql:
-  resources: { requests: { cpu: 100m, memory: 500Mi } }
-redis:
-  resources: { requests: { cpu: 100m, memory: 200Mi } }
+  webservice: { minReplicas: 1, maxReplicas: 1, resources: { requests: { cpu: "150m", memory: "1.2G" } } }
+  sidekiq: { minReplicas: 1, maxReplicas: 1, resources: { requests: { cpu: "100m", memory: "800M" } } }
+  gitaly: { resources: { requests: { cpu: "100m", memory: "500M" } } }
+  postgresql: { resources: { requests: { cpu: "100m", memory: "500M" } } }
+  redis: { resources: { cpu: "100m", memory: "200M" } }
+  toolbox: { resources: { requests: { cpu: "100m", memory: "400M" } } }
