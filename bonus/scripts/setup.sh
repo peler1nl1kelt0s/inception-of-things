@@ -1,19 +1,5 @@
 #!/bin/bash
-# bonus/scripts/setup.sh
-
-# Herhangi bir komut başarısız olursa betiği anında sonlandır
 set -e
-
-# Renk kodları ve ana değişkenler
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-KUBE_NAMESPACE_ARGOCD="argocd"
-KUBE_NAMESPACE_DEV="dev"
-KUBE_NAMESPACE_GITLAB="gitlab"
-PROJECT_NAME="iot-project-app"
 
 # --- Adım 0: DNS Sorununu Düzeltme ---
 # VM içindeki DNS çözümleme sorunlarını engellemek için Google DNS'i ayarla
@@ -62,13 +48,12 @@ echo -e "${YELLOW}Argo CD sunucusunun başlaması bekleniyor...${NC}"
 kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n ${KUBE_NAMESPACE_ARGOCD} --timeout=180s
 
 echo -e "\n${CYAN}### Adım 5: GitLab Kurulumu (Bu adım 20-30 dakika sürebilir) ###${NC}"
-# Doğru Helm deposu URL'sini kullan
-helm repo add gitlab https://charts.gitlab.com/
+# Doğru Helm deposu URL'sini kullan (-mirsaddan not aşağıdaki link .io)
+helm repo add gitlab https://charts.gitlab.io/ 
 helm repo update
-# Doğru values.yaml yolunu kullan (confs, configs değil)
 helm install gitlab gitlab/gitlab \
   --namespace ${KUBE_NAMESPACE_GITLAB} \
-  -f /vagrant/confs/gitlab-values.yaml \
+  -f /vagrant/configs/gitlab-values.yaml \
   --timeout 30m \
   --wait
 
@@ -80,7 +65,7 @@ TOOLBOX_POD=$(kubectl get pods -n ${KUBE_NAMESPACE_GITLAB} -lapp=toolbox -o name
 
 # Projeyi, modern ve tüm doğrulamaları yapan 'Projects::CreateService' ile oluştur
 echo "GitLab projesi '${PROJECT_NAME}' oluşturuluyor..."
-kubectl exec -n ${KUBE_NAMESPACE_GITLAB} ${TOOLBOX_POD} -- gitlab-rails runner <<'RUBY_SCRIPT'
+kubectl exec -n ${KUBE_NAMESPACE_GITLAB} ${TOOLBOX_POD} -- gitlab-rails runner - <<'RUBY_SCRIPT'
 user = User.find_by(username: 'root')
 params = {
   name: 'iot-project-app',
@@ -98,31 +83,42 @@ else
 end
 RUBY_SCRIPT
 
+# --- ESAD NOT: sleep 200 yerine kubectl wait ile podlarin kurulmasi bekleniliyor
+echo -e "${YELLOW}GitLab webservice pod'larının hazır olması bekleniyor...${NC}"
+# GitLab'in webservice deployment'ı tamamen hazır olana kadar bekle (timeout 5 dakika)
+kubectl wait --for=condition=Available deployment -lapp=webservice -n ${KUBE_NAMESPACE_GITLAB} --timeout=300s
+
+echo -e "${YELLOW}GitLab Gitaly pod'larının hazır olması bekleniyor (Git deposu servisi)...${NC}"
+# Gitaly (Git işlemlerini yöneten servis) hazır olana kadar bekle
+kubectl wait --for=condition=Ready pod -lapp=gitaly -n ${KUBE_NAMESPACE_GITLAB} --timeout=300s
+
+echo -e "${GREEN}GitLab servisleri hazır. Klonlama işlemine başlanıyor.${NC}"
+# -----------------------------
+
 # Kodu push'lamak için geçici bir klon oluştur
 echo "Uygulama kodları GitLab'e gönderiliyor..."
 cd /tmp
 # Eğer klasör varsa temizle
 rm -rf ${PROJECT_NAME}
-git clone http://gitlab-webservice-default.${KUBE_NAMESPACE_GITLAB}.svc:8181/root/${PROJECT_NAME}.git
+# ADRESİ localhost:8080 OLARAK DEĞİŞTİRİN - portları değiştirdim (güncelleme)
+git clone http://localhost:8080/root/${PROJECT_NAME}.git
 cd ${PROJECT_NAME}
 # Eski dosyaları silip yenilerini kopyala
 rm -f README.md
-cp /vagrant/confs/deployment.yaml .
-cp /vagrant/confs/service.yaml .
+cp /vagrant/configs/deployment.yaml .
+cp /vagrant/configs/service.yaml .
 # Kodu push'la
 git config --global user.email "admin@example.com"
 git config --global user.name "Administrator"
 git add .
 git commit -m "Initial application manifests"
-git push http://root:${GITLAB_PASSWORD}@gitlab-webservice-default.${KUBE_NAMESPACE_GITLAB}.svc:8181/root/${PROJECT_NAME}.git
+git push http://root:${GITLAB_PASSWORD}@localhost:8080/root/${PROJECT_NAME}.git
 
 echo -e "\n${CYAN}### Adım 7: Argo CD Uygulamasını Dağıtma ###${NC}"
-kubectl apply -f /vagrant/confs/application.yaml
+kubectl apply -f /vagrant/configs/application.yaml
 
 EOF
-# 'vagrant' kullanıcısı olarak çalıştırılan bloğun sonu
 
-# --- Kurulum Sonu ---
 echo -e "\n${GREEN}#############################################################${NC}"
 echo -e "${GREEN}### KURULUM BAŞARIYLA TAMAMLANDI! ###${NC}"
 echo -e "Arayüzlere erişim için Host (ana) makinenizdeki port yönlendirmelerini kullanın:"

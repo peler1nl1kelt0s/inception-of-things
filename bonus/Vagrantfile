@@ -8,7 +8,7 @@ Vagrant.configure("2") do |config|
   config.vm.network "forwarded_port", guest: 8080, host: 8080
 
   config.vm.provider "virtualbox" do |vb|
-    vb.memory = "8192"  # En az 8 GB RAM
+    vb.memory = "12288"  # En az 8 GB RAM ! 8192
     vb.cpus = "4"       # En az 4 CPU
   end
 
