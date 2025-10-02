@@ -16,6 +16,9 @@ clean: ## Vagrant sanal makinesini tamamen yok eder.
 
 re: clean setup
 
+argocd-deploy:
+	@bash scripts/argocd_deployment.sh
+
 ssh: ## Çalışan sanal makineye SSH bağlantısı yapar.
 	@echo ">>> Sanal makineye bağlanılıyor..."
 	@vagrant ssh

@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: wil-playground-app-from-gitlab
+  namespace: argocd
+spec:
+  project: default
+  source:
+    # Bu URL, cluster içindeki GitLab servisine işaret eder.
+    # Manuel adımlardan sonra bu uygulama tanımı çalışacaktır.
+    repoURL: https://gitlab-webservice-default.gitlab.svc/root/iot-project-app.git
+    targetRevision: HEAD
+    path: .
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+  # Argo CD'nin depodaki değişiklikleri otomatik olarak cluster'a uygulamasını sağlar
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    # Sertifika hatasını yoksaymak için (cluster içi iletişimde)
+    syncOptions:
+    - CreateNamespace=true
+    - PruneLast=true
+    - ApplyOutOfSyncOnly=true
+    - ServerSideApply=true
+  # Argo CD'nin GitLab'in kendi kendine imzaladığı sertifikaya güvenmesini sağlar
+  ignoreDifferences:
+  - group: '*'
+    kind: '*'
+    jsonPointers:
+    - /spec/template/spec/containers/0/imagePullPolicy
