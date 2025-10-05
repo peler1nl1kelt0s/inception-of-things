@@ -4,8 +4,8 @@ Vagrant.configure("2") do |config|
 
   config.vm.provider "virtualbox" do |v|
 
-    v.memory = 1024 # 1 GB RAM
-    v.cpus = 1      # 1 CPU
+    v.memory = 4096 # 4 GB RAM
+    v.cpus = 2      # 1 CPU
   end
 
   config.vm.define "mdiragaS" do |server|

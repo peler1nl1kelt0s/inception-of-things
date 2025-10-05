@@ -13,7 +13,7 @@ halt:
 destroy:
 	@echo ">>> Sanal makineler siliniyor..."
 	@vagrant destroy -f
-	@rm -rf .vagrant
+	@rm -rf .vagrant agent-token.env ca.crt
 
 status:
 	@echo ">>> Sanal makinelerin durumu kontrol ediliyor..."
