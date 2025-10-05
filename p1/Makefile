@@ -31,4 +31,8 @@ reprovision:
 	@echo ">>> Kurulum betikleri yeniden çalıştırılıyor..."
 	@vagrant provision
 
+kill-kvm: # çakışma problemi oluyor arada. bu sorunu çözüyor.
+	sudo rmmod kvm_amd
+	sudo rmmod kvm
+
 clean: destroy

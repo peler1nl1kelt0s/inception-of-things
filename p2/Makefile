@@ -47,6 +47,10 @@ test:
 	@echo "$(CYAN)--> 🌐 Varsayilan (app3)$(RESET)"
 	@curl 192.168.56.110
 
+kill-kvm: # çakışma problemi oluyor arada. bu sorunu çözüyor.
+	sudo rmmod kvm_amd
+	sudo rmmod kvm
+
 help:
 	@echo "$(GREEN)📘 Kullanilabilir Makefile Komutlari:$(RESET)"
 	@echo "  $(YELLOW)▶ make up     $(RESET) - $(CYAN)Vagrant ortamini ve K3s kümesini başlatir.$(RESET)"

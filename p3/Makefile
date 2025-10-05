@@ -68,3 +68,7 @@ app-deploy: argocd-install
 	@echo -e "\n${GREEN}[INFO] Uygulama Argo CD'ye tanıtılıyor...${NC}"
 	@kubectl apply -f applications/application.yaml
 	@echo -e "${GREEN}[SUCCESS] Uygulama başarıyla dağıtıldı. Senkronizasyon için Argo CD arayüzünü kontrol edin.${NC}"
+
+kill-kvm: # çakışma problemi oluyor arada. bu sorunu çözüyor.
+	sudo rmmod kvm_amd
+	sudo rmmod kvm
