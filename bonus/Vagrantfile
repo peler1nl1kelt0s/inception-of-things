@@ -1,18 +1,30 @@
-# bonus/Vagrantfile
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
-  config.vm.box = "ubuntu/focal64"
+  # Sanal makine için Ubuntu 22.04 imajını kullan
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.hostname = "iot-gitlab-server"
 
-  config.vm.network "forwarded_port", guest: 80, host: 10080
-  config.vm.network "forwarded_port", guest: 30080, host: 8888
-  config.vm.network "forwarded_port", guest: 8080, host: 8080
-  config.vm.network "forwarded_port", guest: 31953, host: 9000
-  config.vm.network "forwarded_port", guest: 30538, host: 2222
-
+  # Sanallaştırma sağlayıcısı olarak VirtualBox'ı yapılandır
   config.vm.provider "virtualbox" do |vb|
-    vb.memory = "20480"
-    vb.cpus = "8"
+    # Projenin gerektirdiği yüksek kaynakları ayarla
+    vb.memory = "20480" 
+    vb.cpus = "8"       
+    vb.name = "InceptionOfThings-Bonus"
   end
 
+  # Gerekli port yönlendirmeleri
+  # 443: GitLab Arayüzü (HTTPS)
+  # 8888: Örnek Uygulama (wil-playground)
+  # 8081: Argo CD Arayüzü (HTTP)
+  config.vm.network "forwarded_port", guest: 8080, host: 8080
+  config.vm.network "forwarded_port", guest: 8888, host: 8888
+  config.vm.network "forwarded_port", guest: 8081, host: 8081
+
+  # Proje klasörünü sanal makine içindeki /vagrant dizinine senkronize et
+  config.vm.synced_folder ".", "/vagrant", disabled: false
+
+  # Sanal makine oluşturulduktan sonra kurulum betiğini çalıştır
   config.vm.provision "shell", path: "scripts/setup.sh"
 end
