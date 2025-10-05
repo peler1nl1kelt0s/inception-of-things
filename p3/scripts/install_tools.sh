@@ -13,7 +13,7 @@ sudo apt-get update
 sudo apt-get install -y docker-ce
 
 sudo usermod -aG docker ${USER}
-
+newgrp docker
 echo "################################################################"
 echo "Docker başarıyla kuruldu. Değişikliklerin etkili olması için"
 echo "terminali kapatıp açın veya 'newgrp docker' komutunu çalıştırın."
