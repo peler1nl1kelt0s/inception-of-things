@@ -187,10 +187,10 @@ configure_argocd_app() {
     HOST_IP=$(ip -4 addr show docker0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
     
     # application.yaml'daki repoURL'i dinamik olarak ayarla
-    sed -i "s|repoURL:.*|repoURL: http://root:${GITLAB_PASS_ENCODED}@${HOST_IP}:8080/root/${GITLAB_PROJECT_NAME}.git|" /vagrant/confs/application.yaml
+    sed -i "s|repoURL:.*|repoURL: http://root:${GITLAB_PASS_ENCODED}@${HOST_IP}:8080/root/${GITLAB_PROJECT_NAME}.git|" /vagrant/configs/application.yaml
     
     echo -e "${YELLOW}Argo CD'de uygulama oluşturuluyor...${NC}"
-    kubectl apply -f /vagrant/confs/application.yaml
+    kubectl apply -f /vagrant/configs/application.yaml
     
     echo -e "${GREEN}✓ Argo CD uygulaması başarıyla yapılandırıldı.${NC}"
 }

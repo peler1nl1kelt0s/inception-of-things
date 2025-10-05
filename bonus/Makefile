@@ -16,7 +16,8 @@ halt:
 # Sanal makineyi tamamen siler.
 clean:
 	@echo "Sanal makine ve tüm kaynaklar siliniyor..."
-	vagrant destroy -f
+	@vagrant destroy -f
+	@rm -rf .vagrant
 
 # Sanal makinenin durumunu gösterir.
 status:

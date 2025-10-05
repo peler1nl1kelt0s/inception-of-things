@@ -10,7 +10,7 @@ spec:
     repoURL: http://root:X7HQY%2FYU1WCoULlTWv%2FQ0tomESvOWcGeTONTLdL2I1A%3D@172.17.0.1:8080/root/iot-project-app.git
     targetRevision: HEAD
     # Kök dizindeki tüm YAML'ları izle
-    path: confs/
+    path: configs/
   destination:
     server: https://kubernetes.default.svc
     namespace: dev

@@ -19,18 +19,18 @@ up:
 # uygulama dagitma
 deploy:
 	@echo "$(GREEN)🌐 Kubernetes uygulamalari dağıtılıyor...$(RESET)"
-	@vagrant ssh -c "kubectl apply -f /vagrant/confs/app1.yaml"
-	@vagrant ssh -c "kubectl apply -f /vagrant/confs/app2.yaml"
-	@vagrant ssh -c "kubectl apply -f /vagrant/confs/app3.yaml"
-	@vagrant ssh -c "kubectl apply -f /vagrant/confs/ingress.yaml"
+	@vagrant ssh -c "kubectl apply -f /vagrant/configs/app1.yaml"
+	@vagrant ssh -c "kubectl apply -f /vagrant/configs/app2.yaml"
+	@vagrant ssh -c "kubectl apply -f /vagrant/configs/app3.yaml"
+	@vagrant ssh -c "kubectl apply -f /vagrant/configs/ingress.yaml"
 
 # uygulamalari ve vm`i sil
 clean:
 	@echo "$(RED)🧹 Kubernetes kaynaklari siliniyor...$(RESET)"
-	@vagrant ssh -c "kubectl delete -f /vagrant/confs/app1.yaml" || true
-	@vagrant ssh -c "kubectl delete -f /vagrant/confs/app2.yaml" || true
-	@vagrant ssh -c "kubectl delete -f /vagrant/confs/app3.yaml" || true
-	@vagrant ssh -c "kubectl delete -f /vagrant/confs/ingress.yaml" || true
+	@vagrant ssh -c "kubectl delete -f /vagrant/configs/app1.yaml" || true
+	@vagrant ssh -c "kubectl delete -f /vagrant/configs/app2.yaml" || true
+	@vagrant ssh -c "kubectl delete -f /vagrant/configs/app3.yaml" || true
+	@vagrant ssh -c "kubectl delete -f /vagrant/configs/ingress.yaml" || true
 	@echo "$(RED)🗑️  Sanal makine siliniyor...$(RESET)"
 	@vagrant destroy -f
 	@rm -rf .vagrant
