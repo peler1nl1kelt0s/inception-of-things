@@ -10,5 +10,4 @@ spec:
   - protocol: TCP
     port: 8888
     targetPort: 8888
-    # Bu port, k3d cluster oluşturulurken host'a yönlendirildi (8888:30080)
     nodePort: 30080

@@ -1,0 +1,109 @@
+global:
+  appConfig:
+    externalUrl: http://gitlab.local
+    initialRootPassword:
+      secret: gitlab-initial-root-password
+    extra:
+      gitlab:
+        rails:
+          trusted_proxies:
+            - "10.0.0.0/8"
+            - "172.16.0.0/12"
+            - "192.168.0.0/16"
+
+  hosts:
+    domain: gitlab.local
+    gitlab:
+      name: gitlab.local
+    https: false
+
+  ingress:
+    enabled: true
+    className: traefik
+    tls:
+      enabled: false
+    configureCertmanager: false
+
+gitlab:
+  kas:
+    enabled: false
+  
+  webservice:
+    ingress:
+      enabled: true
+      tls:
+        enabled: false
+      hosts:
+        - name: gitlab.local
+          path: /
+    minReplicas: 1
+    maxReplicas: 1
+    resources:
+      requests:
+        cpu: "1000m"
+        memory: "2G"
+      limits:
+        cpu: "1000m"
+        memory: "4G"
+  
+  sidekiq:
+    minReplicas: 1
+    maxReplicas: 1
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1G"
+      limits:
+        cpu: "500m"
+        memory: "2G"
+  
+  gitaly:
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1G"
+      limits:
+        cpu: "500m"
+        memory: "2G"
+  
+  toolbox:
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
+
+postgresql:
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1G"
+    limits:
+      cpu: "500m"
+      memory: "2G"
+
+redis:
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+nginx-ingress:
+  enabled: false
+
+prometheus:
+  install: false
+
+gitlab-runner:
+  install: false
+
+registry:
+  enabled: true
+  storage:
+    secret: gitlab-registry-storage
+    key: config
