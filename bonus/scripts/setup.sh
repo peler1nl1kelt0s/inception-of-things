@@ -68,42 +68,52 @@ create_k3d_cluster() {
 # Adım 3: GitLab Omnibus Kurulumu
 install_gitlab_omnibus() {
     echo -e "\n${CYAN}### Adım 3: GitLab Omnibus Kuruluyor (Bu işlem uzun sürebilir) ###${NC}"
-    # GitLab deposunu ekle
-    kubectl create namespace ${KUBE_NAMESPACE_GITLAB} 2>/dev/null || true
-    curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.deb.sh | sudo bash
+    
+    # GitLab deposunu ekle (zaten varsa hata vermez)
+    if [ ! -f /etc/apt/sources.list.d/gitlab_gitlab-ee.list ]; then
+        curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.deb.sh | sudo bash
+    fi
+    
     # Paketi kur
     sudo apt-get install -y gitlab-ee
 
-    echo -e "${YELLOW}Ağ çakışmasını önlemek için Nginx ayarları yapılıyor ve GitLab yapılandırılıyor...${NC}"
+    echo -e "${YELLOW}GitLab yapılandırma dosyası (/etc/gitlab/gitlab.rb) oluşturuluyor...${NC}"
     
-    # --- DEĞİŞİKLİK BURADA: Nginx ayarları eklendi ---
+    # Yapılandırma dosyasını oluştur.
+    # Bu blok, dosyanın üzerine yazar ve her seferinde temiz bir başlangıç sağlar.
     sudo bash -c "cat > /etc/gitlab/gitlab.rb" <<EOF
-# HTTPS kaldırıldı, HTTP kullanılıyor. Port olarak 8080 seçildi.
 external_url "http://gitlab.local:8080"
 
 puma['port'] = 9554
-
 gitlab_workhorse['listen_network'] = "tcp"
 gitlab_workhorse['listen_addr'] = "127.0.0.1:8181"
 gitlab_rails['gitlab_restricted_visibility_levels'] = []
 EOF
-    
-    echo -e "${YELLOW}GitLab yeniden yapılandırılıyor... (Hata ayıklama modu aktif)${NC}"
-    set +e # Hata olsa bile betiğin devam etmesini sağla
-    sudo gitlab-ctl reconfigure
-    set -e # Hata kontrolünü tekrar devreye al
-    echo -e "${YELLOW}Yapılandırma komutu tamamlandı. Betik devam ediyor...${NC}"
 
-    # Aşağıdaki bekleme döngüsü muhtemelen başarısız olacak ve bu normaldir.
-    echo -e "${YELLOW}GitLab'in başlaması ve hazır olması bekleniyor...${NC}"
+    echo -e "${GREEN}✓ Yapılandırma dosyası yazıldı.${NC}"
+    echo -e "${YELLOW}GitLab yeniden yapılandırılıyor... Bu işlem birkaç dakika sürebilir.${NC}"
+    
+    if sudo gitlab-ctl reconfigure; then
+        echo -e "${GREEN}✓ GitLab başarıyla yeniden yapılandırıldı.${NC}"
+    else
+        echo -e "${RED}❌ HATA: GitLab 'reconfigure' işlemi sırasında bir hata oluştu!${NC}"
+        echo -e "${YELLOW}Logları kontrol edin. Kurulum durduruldu.${NC}"
+        exit 1
+    fi
+
+    # GitLab'ın başlaması için kısa bir bekleme süresi
+    echo -e "${YELLOW}GitLab servislerinin başlaması için 30 saniye bekleniyor...${NC}"
     sleep 30
+
+    echo -e "${YELLOW}GitLab'in hazır olması kontrol ediliyor...${NC}"
+    # GitLab hazır olana kadar bekle
     until [ "$(curl -s -o /dev/null -w "%{http_code}" http://gitlab.local:8080/users/sign_in)" == "200" ]; do
         printf '.'
         sleep 10
     done
-    echo -e "\n${GREEN}✓ GitLab Omnibus kurulumu tamamlandı.${NC}"
+    
+    echo -e "\n${GREEN}✓ GitLab Omnibus kurulumu tamamlandı ve erişilebilir durumda.${NC}"
 }
-
 # Adım 4: Argo CD Kurulumu
 install_argocd() {
     echo -e "\n${CYAN}### Adım 4: Argo CD Kuruluyor ###${NC}"
