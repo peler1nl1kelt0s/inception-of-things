@@ -1,124 +1,222 @@
 #!/bin/bash
-# Inception-of-Things - Ana Kurulum Scripti
+# Inception-of-Things - Bonus Part - Full Automation Script with GitLab Omnibus
 
-set -e
-
-# --- Renkler ---
+# --- Renkler ve Değişkenler ---
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# Scriptlerin bulunduğu dizin - VAGRANT İÇİN DÜZELTME
-SCRIPT_DIR="/vagrant/scripts"
-BASE_DIR="/vagrant"
+set -e # Herhangi bir komut başarısız olursa betiği durdur
 
-echo -e "${CYAN}Inception-of-Things Bonus Kurulumu Başlatılıyor...${NC}"
+# --- Genel Değişkenler ---
+KUBE_NAMESPACE_ARGOCD="argocd"
+KUBE_NAMESPACE_DEV="dev"
+KUBE_NAMESPACE_GITLAB="gitlab"
+GITLAB_URL="http://gitlab.local:8080"
+GITLAB_PROJECT_NAME="iot-project-app"
 
-# Önce mevcut dizini ve dosyaları kontrol et
-echo -e "${YELLOW}Mevcut dizin: $(pwd)${NC}"
-echo -e "${YELLOW}Dizin içeriği:$(ls -la)${NC}"
+# Adım 1: Gerekli araçların kurulumu
+install_tools() {
+    echo -e "\n${CYAN}### Adım 1: Gerekli Araçlar Kuruluyor ve Sistem Hazırlanıyor ###${NC}"
+    
+    # --- YENİ EKLENEN BÖLÜM: Port çakışmasını önle ---
+    echo -e "${YELLOW}Port çakışmasını önlemek için Apache2 servisi durduruluyor ve kaldırılıyor...${NC}"
+    sudo systemctl stop apache2 2>/dev/null || true
+    sudo systemctl disable apache2 2>/dev/null || true
+    sudo apt-get purge apache2 -y 2>/dev/null || true
+    # ----------------------------------------------------
 
-# Script'leri çalıştırılabilir yap
-echo -e "${YELLOW}Script dosyalarına çalıştırma izni veriliyor...${NC}"
-if [ -d "$SCRIPT_DIR" ]; then
-    find "$SCRIPT_DIR" -name "*.sh" -type f -exec chmod +x {} \;
-    echo -e "${GREEN}✓ Scriptlere çalıştırma izni verildi${NC}"
-else
-    echo -e "${RED}❌ Hata: $SCRIPT_DIR dizini bulunamadı!${NC}"
-    exit 1
-fi
-
-# Configs klasörünü kontrol et
-if [ ! -d "$BASE_DIR/configs" ]; then
-    echo -e "${RED}❌ Hata: configs klasörü bulunamadı!${NC}"
-    echo -e "${YELLOW}BASE_DIR içeriği:$(ls -la "$BASE_DIR/")${NC}"
-    exit 1
-fi
-
-# Her bir script için dosya varlığını kontrol et
-check_script() {
-    local script="$1"
-    if [ ! -f "$SCRIPT_DIR/$script" ]; then
-        echo -e "${RED}❌ Hata: $script bulunamadı!${NC}"
-        echo -e "${YELLOW}Aranan yol: $SCRIPT_DIR/$script${NC}"
-        echo -e "${YELLOW}Mevcut scriptler:$(ls -la "$SCRIPT_DIR/")${NC}"
-        exit 1
+    sudo apt-get update && sudo apt-get install -y curl vim git ca-certificates openssh-server apt-transport-https
+    
+    # Docker kurulumu
+    if ! command -v docker &> /dev/null; then
+        echo -e "${YELLOW}Docker bulunamadı, kuruluyor...${NC}"
+        sudo apt-get install -y docker.io
+        sudo systemctl enable --now docker
+        sudo usermod -aG docker vagrant
     fi
-    echo -e "${GREEN}✓ $script bulundu${NC}"
+
+    # K3d ve Kubectl
+    curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+    
+    # Host dosyasını ayarla
+    echo "127.0.0.1 gitlab.local" | sudo tee -a /etc/hosts
+    echo -e "${GREEN}✓ Araçlar başarıyla kuruldu.${NC}"
 }
 
-# Adım 1: Araçları kur
-echo -e "\n${CYAN}### Adım 1: Araçlar Kuruluyor ###${NC}"
-check_script "install-tools.sh"
-cd "$SCRIPT_DIR" && ./install-tools.sh
-
-# Adım 2: K3D cluster oluştur
-echo -e "\n${CYAN}### Adım 2: K3D Cluster Oluşturuluyor ###${NC}"
-check_script "k3d-setup.sh"
-cd "$SCRIPT_DIR" && ./k3d-setup.sh
-
-# Adım 3: GitLab kur
-echo -e "\n${CYAN}### Adım 3: GitLab Kuruluyor ###${NC}"
-check_script "gitlab-setup.sh"
-cd "$SCRIPT_DIR" && ./gitlab-setup.sh
-
-# Adım 4: ArgoCD kur
-echo -e "\n${CYAN}### Adım 4: ArgoCD Kuruluyor ###${NC}"
-check_script "argocd-setup.sh"
-cd "$SCRIPT_DIR" && ./argocd-setup.sh
-
-# Adım 5: Servisleri başlat
-echo -e "\n${CYAN}### Adım 5: Servisler Başlatılıyor ###${NC}"
-check_script "start-services.sh"
-cd "$SCRIPT_DIR" && ./start-services.sh
-
-# Adım 6: Projeyi yapılandır (GitLab hazır olana kadar bekle)
-echo -e "\n${CYAN}### Adım 6: Proje Yapılandırılıyor ###${NC}"
-check_script "configure-project.sh"
-
-echo -e "${YELLOW}GitLab'ın hazır olması bekleniyor...${NC}"
-
-# GitLab'ın hazır olmasını bekle (maksimum 15 deneme)
-MAX_RETRIES=15
-RETRY_COUNT=0
-until curl -s -f "http://localhost:8080" > /dev/null; do
-    RETRY_COUNT=$((RETRY_COUNT+1))
-    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-        echo -e "${RED}❌ Hata: GitLab zaman aşımına uğradı!${NC}"
-        echo -e "${YELLOW}Son durum kontrolü:${NC}"
-        kubectl get pods -n gitlab
-        exit 1
+# Adım 2: K3d Cluster oluşturma
+create_k3d_cluster() {
+    echo -e "\n${CYAN}### Adım 2: K3d Cluster 'iot-cluster' Oluşturuluyor ###${NC}"
+    if ! k3d cluster get iot-cluster > /dev/null 2>&1; then
+        k3d cluster create iot-cluster \
+            --api-port 6443 \
+            -p "8888:30080@loadbalancer" \
+            -p "8081:80@loadbalancer"
+    else
+        echo -e "${YELLOW}K3d cluster 'iot-cluster' zaten mevcut.${NC}"
     fi
-    echo "GitLab henüz hazır değil, 30 saniye bekleniyor... ($RETRY_COUNT/$MAX_RETRIES)"
+    mkdir -p /home/vagrant/.kube && k3d kubeconfig get iot-cluster > /home/vagrant/.kube/config
+    chown -R vagrant:vagrant /home/vagrant/.kube
+    kubectl create namespace ${KUBE_NAMESPACE_DEV} 2>/dev/null || true
+    echo -e "${GREEN}✓ K3d Cluster ve 'dev' namespace'i hazır.${NC}"
+}
+
+# Adım 3: GitLab Omnibus Kurulumu
+install_gitlab_omnibus() {
+    echo -e "\n${CYAN}### Adım 3: GitLab Omnibus Kuruluyor (Bu işlem uzun sürebilir) ###${NC}"
+    # GitLab deposunu ekle
+    kubectl create namespace ${KUBE_NAMESPACE_GITLAB} 2>/dev/null || true
+    curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.deb.sh | sudo bash
+    # Paketi kur
+    sudo apt-get install -y gitlab-ee
+
+    echo -e "${YELLOW}Ağ çakışmasını önlemek için Nginx ayarları yapılıyor ve GitLab yapılandırılıyor...${NC}"
+    
+    # --- DEĞİŞİKLİK BURADA: Nginx ayarları eklendi ---
+    sudo bash -c "cat > /etc/gitlab/gitlab.rb" <<EOF
+# HTTPS kaldırıldı, HTTP kullanılıyor. Port olarak 8080 seçildi.
+external_url "http://gitlab.local:8080"
+
+puma['port'] = 9554
+
+gitlab_workhorse['listen_network'] = "tcp"
+gitlab_workhorse['listen_addr'] = "127.0.0.1:8181"
+gitlab_rails['gitlab_restricted_visibility_levels'] = []
+EOF
+    
+    echo -e "${YELLOW}GitLab yeniden yapılandırılıyor... (Hata ayıklama modu aktif)${NC}"
+    set +e # Hata olsa bile betiğin devam etmesini sağla
+    sudo gitlab-ctl reconfigure
+    set -e # Hata kontrolünü tekrar devreye al
+    echo -e "${YELLOW}Yapılandırma komutu tamamlandı. Betik devam ediyor...${NC}"
+
+    # Aşağıdaki bekleme döngüsü muhtemelen başarısız olacak ve bu normaldir.
+    echo -e "${YELLOW}GitLab'in başlaması ve hazır olması bekleniyor...${NC}"
     sleep 30
-done
+    until [ "$(curl -s -o /dev/null -w "%{http_code}" http://gitlab.local:8080/users/sign_in)" == "200" ]; do
+        printf '.'
+        sleep 10
+    done
+    echo -e "\n${GREEN}✓ GitLab Omnibus kurulumu tamamlandı.${NC}"
+}
 
-cd "$SCRIPT_DIR" && ./configure-project.sh
+# Adım 4: Argo CD Kurulumu
+install_argocd() {
+    echo -e "\n${CYAN}### Adım 4: Argo CD Kuruluyor ###${NC}"
+    kubectl create namespace ${KUBE_NAMESPACE_ARGOCD} 2>/dev/null || true
+    kubectl apply -n ${KUBE_NAMESPACE_ARGOCD} -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    echo -e "${YELLOW}Argo CD servislerinin başlaması bekleniyor...${NC}"
+    kubectl wait --for=condition=ready pod --all -n ${KUBE_NAMESPACE_ARGOCD} --timeout=300s
+    
+    # --- DÜZELTİLMİŞ BÖLÜM: Argo CD sunucusunu doğru şekilde yamala ---
+    echo -e "${YELLOW}Argo CD sunucusu HTTP-HTTPS yönlendirmesini devre dışı bırakmak için yamalanıyor...${NC}"
+    # HATALI KOMUT ŞUYDU: kubectl patch ... "path": ".../command/-" ...
+    # DOĞRU KOMUT AŞAĞIDAKİDİR:
+    kubectl patch deployment argocd-server -n argocd --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--insecure"}]'
 
-# Kurulum tamamlandı
-echo -e "\n${GREEN}#############################################################${NC}"
-echo -e "${GREEN}###           KURULUM BAŞARIYLA TAMAMLANDI!              ###${NC}"
-echo -e "${GREEN}#############################################################${NC}"
+    # Argo CD Ingress'i oluştur (Port 8081'den erişim için)
+    cat <<EOF | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  namespace: argocd
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: argocd-server
+            port:
+              number: 80
+EOF
+    echo -e "${GREEN}✓ Argo CD kuruldu ve 8081 portundan erişime açıldı.${NC}"
+}
 
-# Şifreleri göster
-echo -e "\n${CYAN}Erişim Bilgileri:${NC}"
-echo -e "  ${YELLOW}GitLab:${NC}   http://localhost:8080"
-GITLAB_PASSWORD=$(kubectl get secret -n gitlab gitlab-gitlab-initial-root-password -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode || echo "Henüz hazır değil")
-echo -e "    Kullanıcı: ${GREEN}root${NC}"
-echo -e "    Şifre: ${GREEN}$GITLAB_PASSWORD${NC}"
+# Adım 5: GitLab Projesini Otomatik Yapılandırma
+configure_gitlab_project() {
+    echo -e "\n${CYAN}### Adım 5: GitLab Projesi Otomatik Olarak Yapılandırılıyor ###${NC}"
+    
+    # GitLab'in ilk root şifresini dosyadan oku
+    GITLAB_PASS=$(sudo cat /etc/gitlab/initial_root_password | grep 'Password:' | awk '{print $2}')
+    
+    # --- YENİ EKLENEN SATIR: Şifreyi URL uyumlu hale getir ---
+    GITLAB_PASS_ENCODED=$(echo -n "$GITLAB_PASS" | python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.stdin.read().strip(), safe=''))")
 
-echo -e "\n  ${YELLOW}ArgoCD:${NC}  http://localhost:8081"
-ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' 2>/dev/null | base64 --decode || echo "Henüz hazır değil")
-echo -e "    Kullanıcı: ${GREEN}admin${NC}"
-echo -e "    Şifre: ${GREEN}$ARGOCD_PASSWORD${NC}"
+    echo -e "${YELLOW}GitLab root kullanıcısı için erişim token'ı oluşturuluyor (API için)...${NC}"
+    GITLAB_TOKEN=$(sudo gitlab-rails runner "User.find(1).personal_access_tokens.where(name: 'ArgoCD Token').destroy_all; token = User.find(1).personal_access_tokens.create(scopes: ['api', 'read_repository', 'write_repository'], name: 'ArgoCD Token'); puts token.token")
+    
+    echo -e "${YELLOW}'${GITLAB_PROJECT_NAME}' adında yeni bir proje oluşturuluyor...${NC}"
+    curl --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" -X POST "${GITLAB_URL}/api/v4/projects?name=${GITLAB_PROJECT_NAME}&visibility=public"
+    
+    echo -e "${YELLOW}Uygulama YAML dosyaları GitLab deposuna push ediliyor...${NC}"
+    cd /vagrant/configs
+    
+    rm -rf .git
+    
+    git config --global --add safe.directory /vagrant
+    git init
+    git config user.name "Vagrant" && git config user.email "vagrant@example.com"
+    
+    # --- DEĞİŞİKLİK BURADA: URL uyumlu şifre kullanılıyor ---
+    git remote add origin "http://root:${GITLAB_PASS_ENCODED}@gitlab.local:8080/root/${GITLAB_PROJECT_NAME}.git"
+    
+    git add application.yaml service.yaml
+    git commit -m "Initial commit of iot-project application"
+    
+    git push -u origin master
 
-echo -e "\n  ${YELLOW}Uygulama:${NC} http://localhost:8888"
+    echo -e "${GREEN}✓ GitLab projesi başarıyla yapılandırıldı.${NC}"
+}
 
-echo -e "\n${YELLOW}Not:${NC} Tüm servislerin tamamen hazır olması birkaç dakika sürebilir."
-echo -e "${YELLOW}Port forwarding arka planda çalışıyor.${NC}"
+# Adım 6: Argo CD Uygulamasını Yapılandırma
+configure_argocd_app() {
+    echo -e "\n${CYAN}### Adım 6: Argo CD Uygulaması Yapılandırılıyor ###${NC}"
+    
+    # K3d içinden host'a (Vagrant VM) erişim için IP'yi bul
+    HOST_IP=$(ip -4 addr show docker0 | grep -oP '(?<=inet\s)\d+(\.\d+){3}')
+    
+    # application.yaml'daki repoURL'i dinamik olarak ayarla
+    sed -i "s|repoURL:.*|repoURL: https://${HOST_IP}/root/${GITLAB_PROJECT_NAME}.git|" /vagrant/configs/application.yaml
+    
+    echo -e "${YELLOW}Argo CD'de uygulama oluşturuluyor...${NC}"
+    kubectl apply -f /vagrant/configs/application.yaml
+    
+    echo -e "${GREEN}✓ Argo CD uygulaması başarıyla yapılandırıldı.${NC}"
+}
 
-# Servis durumlarını göster
-echo -e "\n${CYAN}Servis Durumları:${NC}"
-kubectl get pods -A
+# --- Betiğin Ana Akışı ---
+main() {
+    export GITLAB_TOKEN
+    install_tools
+    create_k3d_cluster
+    install_gitlab_omnibus
+    install_argocd
+    configure_gitlab_project
+    configure_argocd_app
+
+    {
+        echo -e "\n${GREEN}#############################################################${NC}"
+        echo -e "${GREEN}###           KURULUM BAŞARIYLA TAMAMLANDI!              ###${NC}"
+        echo -e "${GREEN}#############################################################${NC}"
+        echo -e "\n${CYAN}Arayüzlere Erişim Bilgileri:${NC}"
+        echo -e "  ${YELLOW}GitLab Arayüzü:${NC}   ${GITLAB_URL}:8443"
+        echo -e "    Kullanıcı Adı: root"
+        echo -e "    Şifre: $(sudo cat /etc/gitlab/initial_root_password | grep 'Password:' | awk '{print $2}')"
+        echo -e "\n  ${YELLOW}Argo CD Arayüzü:${NC}  http://localhost:8081"
+        echo -e "    Kullanıcı Adı: admin"
+        echo -e "    Şifre: $(kubectl -n ${KUBE_NAMESPACE_ARGOCD} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"
+        echo -e "\n  ${YELLOW}Uygulama:${NC}          http://localhost:8888"
+        echo -e "\n${YELLOW}Kurulum tamamlandı! Argo CD'nin uygulamayı senkronize etmesi birkaç dakika sürebilir.${NC}"
+    } | tee login.txt
+}
+
+# Betiği başlat
+main
