@@ -17,7 +17,7 @@ halt:
 clean:
 	@echo "Sanal makine ve tüm kaynaklar siliniyor..."
 	@vagrant destroy -f
-	@rm -rf .vagrant .git configs/.git
+	@rm -rf .vagrant .git configs/.git configs/login.txt
 
 # Sanal makinenin durumunu gösterir.
 status:
