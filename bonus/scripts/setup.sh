@@ -217,7 +217,7 @@ main() {
         echo -e "${GREEN}###           KURULUM BAŞARIYLA TAMAMLANDI!              ###${NC}"
         echo -e "${GREEN}#############################################################${NC}"
         echo -e "\n${CYAN}Arayüzlere Erişim Bilgileri:${NC}"
-        echo -e "  ${YELLOW}GitLab Arayüzü:${NC}   ${GITLAB_URL}:8443"
+        echo -e "  ${YELLOW}GitLab Arayüzü:${NC}   ${GITLAB_URL}"
         echo -e "    Kullanıcı Adı: root"
         echo -e "    Şifre: $(sudo cat /etc/gitlab/initial_root_password | grep 'Password:' | awk '{print $2}')"
         echo -e "\n  ${YELLOW}Argo CD Arayüzü:${NC}  http://localhost:8081"
